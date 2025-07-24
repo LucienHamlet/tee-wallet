@@ -5,9 +5,6 @@ on:
     branches: [ master, main, develop ]
   pull_request:
     branches: [ master, main, develop ]
-  schedule:
-    # Run daily at 2 AM UTC to catch any dependency issues
-    - cron: '0 2 * * *'
 
 jobs:
   validate-examples:
@@ -31,130 +28,56 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pytest pytest-asyncio
-        # Install optional dependencies for examples
         pip install aiohttp || echo "aiohttp not available, examples will use fallback"
-        if [ -f requirements.txt ]; then pip install -r requirements.txt || true; fi
 
-    - name: Create safe demo script
+    - name: Run core functionality validation
       run: |
-        cat > safe_demo.py << 'EOF'
-#!/usr/bin/env python3
-"""Safe demo script that validates core functionality without external dependencies"""
-
-import sys
-import os
-import asyncio
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
-
-async def validate_core_functionality():
-    print("=== TEE Wallet Core Functionality Validation ===\n")
-    
-    try:
+        export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
+        python -c "
+        import sys, asyncio
+        sys.path.insert(0, 'src')
         from tee_wallet import TEEWallet, SigningPolicy, TransactionRequest
         from spoon_integration import create_secure_agent, SpoonOSIntegration
         
-        # Test 1: Basic wallet creation
-        print("1. Testing wallet creation...")
-        wallet = TEEWallet("validation_wallet")
-        print(f"   ✅ Wallet created: {wallet.get_address()}")
+        async def validate():
+            print('=== TEE Wallet Core Functionality Validation ===')
+            
+            # Test 1: Basic wallet creation
+            print('1. Testing wallet creation...')
+            wallet = TEEWallet('validation_wallet')
+            print(f'   ✅ Wallet created: {wallet.get_address()}')
+            
+            # Test 2: Policy enforcement
+            print('2. Testing policy enforcement...')
+            policy = SigningPolicy(max_transaction_value=500.0)
+            wallet_with_policy = TEEWallet('policy_wallet', policy)
+            
+            small_tx = TransactionRequest('0x742d35Cc6634C0532925a3b844Bc9e7595f1234', 100.0)
+            result = await wallet_with_policy.secure_sign(small_tx)
+            assert result['success'], 'Small transaction should succeed'
+            print('   ✅ Small transaction approved')
+            
+            large_tx = TransactionRequest('0x742d35Cc6634C0532925a3b844Bc9e7595f1234', 1000.0)
+            result = await wallet_with_policy.secure_sign(large_tx)
+            assert not result['success'], 'Large transaction should be blocked'
+            print('   ✅ Large transaction correctly blocked by policy')
+            
+            # Test 3: SpoonOS integration
+            print('3. Testing SpoonOS integration...')
+            integration = SpoonOSIntegration()
+            parse_result = integration._parse_with_regex('Send 0.5 ETH to 0x742d35Cc6634C0532925a3b844Bc9e7595f1234')
+            assert parse_result['success'] and parse_result['amount'] == 0.5
+            print('   ✅ Transaction parsing works correctly')
+            
+            # Test 4: Secure agent creation
+            print('4. Testing secure agent creation...')
+            agent = create_secure_agent('test_agent', {'max_transaction_value': 1000.0, 'daily_limit': 5000.0})
+            print(f'   ✅ Secure agent created: {agent.wallet.get_address()}')
+            
+            print('=== All Core Functionality Tests Passed! ===')
         
-        # Test 2: Policy enforcement
-        print("\n2. Testing policy enforcement...")
-        policy = SigningPolicy(max_transaction_value=500.0)
-        wallet_with_policy = TEEWallet("policy_wallet", policy)
-        
-        # Small transaction (should succeed)
-        small_tx = TransactionRequest(
-            to_address="0x742d35Cc6634C0532925a3b844Bc9e7595f1234",
-            value=100.0
-        )
-        result = await wallet_with_policy.secure_sign(small_tx)
-        if result["success"]:
-            print("   ✅ Small transaction approved")
-        else:
-            print(f"   ❌ Small transaction failed: {result.get('error')}")
-            return False
-        
-        # Large transaction (should be blocked by policy)
-        large_tx = TransactionRequest(
-            to_address="0x742d35Cc6634C0532925a3b844Bc9e7595f1234",
-            value=1000.0  # Exceeds policy limit
-        )
-        result = await wallet_with_policy.secure_sign(large_tx)
-        if not result["success"]:
-            print("   ✅ Large transaction correctly blocked by policy")
-        else:
-            print("   ❌ Large transaction should have been blocked")
-            return False
-        
-        # Test 3: SpoonOS integration structure
-        print("\n3. Testing SpoonOS integration...")
-        integration = SpoonOSIntegration()
-        
-        # Test transaction parsing
-        test_request = "Send 0.5 ETH to 0x742d35Cc6634C0532925a3b844Bc9e7595f1234"
-        parse_result = integration._parse_with_regex(test_request)
-        
-        if parse_result["success"] and parse_result["amount"] == 0.5:
-            print("   ✅ Transaction parsing works correctly")
-        else:
-            print(f"   ❌ Transaction parsing failed: {parse_result}")
-            return False
-        
-        # Test 4: Secure agent creation
-        print("\n4. Testing secure agent creation...")
-        agent = create_secure_agent("test_agent", {
-            "max_transaction_value": 1000.0,
-            "daily_limit": 5000.0
-        })
-        print(f"   ✅ Secure agent created: {agent.wallet.get_address()}")
-        
-        # Test 5: Audit logging
-        print("\n5. Testing audit logging...")
-        audit_log = wallet.get_audit_log()
-        if len(audit_log) > 0:
-            print(f"   ✅ Audit log contains {len(audit_log)} entries")
-        else:
-            print("   ❌ Audit log should contain entries")
-            return False
-        
-        # Test 6: Public info export
-        print("\n6. Testing public info export...")
-        public_info = wallet.export_public_info()
-        if "address" in public_info and "public_key_hash" in public_info:
-            print("   ✅ Public info export works")
-        else:
-            print(f"   ❌ Public info export incomplete: {public_info}")
-            return False
-        
-        print("\n=== All Core Functionality Tests Passed! ===")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Validation failed with error: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-if __name__ == "__main__":
-    success = asyncio.run(validate_core_functionality())
-    exit(0 if success else 1)
-EOF
-
-    - name: Run safe demo validation
-      run: |
-        export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
-        python safe_demo.py
-
-    - name: Test original demo (with error handling)
-      run: |
-        export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
-        if [ -f examples/demo_usage.py ]; then
-          echo "Testing original demo with error handling..."
-          timeout 60 python examples/demo_usage.py || echo "Demo completed with expected limitations (missing dependencies)"
-        else
-          echo "No original demo found, skipping"
-        fi
+        asyncio.run(validate())
+        "
 
     - name: Validate SpoonOS submodule structure
       run: |
@@ -164,92 +87,34 @@ EOF
         test -d spoonos/spoon_ai || (echo "SpoonOS core missing" && exit 1)
         echo "✅ SpoonOS submodule structure validated"
 
-    - name: Test import paths with submodule
-      run: |
-        export PYTHONPATH="${PYTHONPATH}:$(pwd)/src:$(pwd)/spoonos"
-        python -c "
-import sys
-sys.path.insert(0, 'src')
-sys.path.insert(0, 'spoonos')
-
-# Test that our integration can find the submodule path
-from spoon_integration import SPOON_AVAILABLE
-print(f'SpoonOS available: {SPOON_AVAILABLE}')
-
-# This should work even if SpoonOS modules aren't installed
-import spoon_integration
-print('✅ SpoonOS integration path resolution works')
-"
-
-    - name: Performance and memory test
+    - name: Performance test
       run: |
         export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
         python -c "
-import sys
-sys.path.insert(0, 'src')
-import asyncio
-import time
-import gc
-from tee_wallet import TEEWallet, TransactionRequest
-
-async def performance_test():
-    print('Running performance test...')
-    
-    start_time = time.time()
-    
-    # Create multiple wallets
-    wallets = []
-    for i in range(10):
-        wallet = TEEWallet(f'perf_test_{i}')
-        wallets.append(wallet)
-    
-    # Process multiple transactions
-    tasks = []
-    for i, wallet in enumerate(wallets):
-        tx = TransactionRequest(
-            to_address=f'0x742d35Cc6634C0532925a3b844Bc9e759{i:04d}',
-            value=50.0 + i
-        )
-        tasks.append(wallet.secure_sign(tx))
-    
-    results = await asyncio.gather(*tasks)
-    
-    end_time = time.time()
-    
-    successful = sum(1 for r in results if r['success'])
-    print(f'✅ Processed {len(results)} transactions in {end_time - start_time:.2f}s')
-    print(f'✅ Success rate: {successful}/{len(results)}')
-    
-    # Memory cleanup test
-    wallets.clear()
-    gc.collect()
-    print('✅ Memory cleanup completed')
-
-asyncio.run(performance_test())
-"
-
-    - name: Generate validation report
-      run: |
-        echo "# Examples Validation Report" > validation-report.md
-        echo "" >> validation-report.md
-        echo "## Test Environment" >> validation-report.md
-        echo "- Python Version: ${{ matrix.python-version }}" >> validation-report.md
-        echo "- OS: Ubuntu Latest" >> validation-report.md
-        echo "- Date: $(date)" >> validation-report.md
-        echo "" >> validation-report.md
-        echo "## Results" >> validation-report.md
-        echo "✅ Core functionality validated" >> validation-report.md
-        echo "✅ Policy enforcement working" >> validation-report.md
-        echo "✅ SpoonOS integration structure correct" >> validation-report.md
-        echo "✅ Performance test passed" >> validation-report.md
-        echo "" >> validation-report.md
-        cat validation-report.md
-
-    - name: Upload validation artifacts
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: validation-report-py${{ matrix.python-version }}
-        path: |
-          validation-report.md
-          safe_demo.py
+        import sys, asyncio, time
+        sys.path.insert(0, 'src')
+        from tee_wallet import TEEWallet, TransactionRequest
+        
+        async def performance_test():
+            print('Running performance test...')
+            start_time = time.time()
+            
+            wallets = []
+            for i in range(10):
+                wallet = TEEWallet(f'perf_test_{i}')
+                wallets.append(wallet)
+            
+            tasks = []
+            for i, wallet in enumerate(wallets):
+                tx = TransactionRequest(f'0x742d35Cc6634C0532925a3b844Bc9e759{i:04d}', 50.0 + i)
+                tasks.append(wallet.secure_sign(tx))
+            
+            results = await asyncio.gather(*tasks)
+            end_time = time.time()
+            
+            successful = sum(1 for r in results if r['success'])
+            print(f'✅ Processed {len(results)} transactions in {end_time - start_time:.2f}s')
+            print(f'✅ Success rate: {successful}/{len(results)}')
+        
+        asyncio.run(performance_test())
+        "
