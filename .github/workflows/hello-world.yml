@@ -1,0 +1,25 @@
+name: Hello World
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Say hello
+      run: echo "Hello World! GitHub Actions is working!"
+      
+    - name: Check environment
+      run: |
+        echo "Runner OS: $RUNNER_OS"
+        echo "GitHub repository: $GITHUB_REPOSITORY"
+        echo "GitHub ref: $GITHUB_REF"
+        
+    - name: Test Python availability
+      run: |
+        which python3
+        python3 --version
+        python3 -c "print('Python 3 is available')"

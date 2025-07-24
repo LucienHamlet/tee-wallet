@@ -1,0 +1,35 @@
+name: Basic Check
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  basic-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+        
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Test Python
+      run: |
+        python --version
+        python -c "print('Python is working')"
+        
+    - name: Check files
+      run: |
+        ls -la
+        ls -la src/
+        
+    - name: Simple import test
+      run: |
+        cd src
+        python -c "import tee_wallet; print('Import successful')"

@@ -1,0 +1,70 @@
+name: Checkout Test
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  checkout-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout without submodules
+      uses: actions/checkout@v3
+      
+    - name: List files after checkout
+      run: |
+        echo "=== Root directory ==="
+        ls -la
+        echo "=== Source directory ==="
+        ls -la src/ || echo "src directory not found"
+        echo "=== Check for spoonos ==="
+        ls -la spoonos/ || echo "spoonos directory not found"
+        
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install basic deps
+      run: |
+        pip install --upgrade pip
+        pip install cryptography
+        
+    - name: Try importing without submodule
+      run: |
+        export PYTHONPATH="$(pwd)/src"
+        python3 -c "
+        import sys
+        print('Python path:', sys.path[:3])
+        sys.path.insert(0, 'src')
+        
+        # Try importing our modules
+        try:
+            import tee_wallet
+            print('✓ tee_wallet imported')
+        except ImportError as e:
+            print(f'✗ tee_wallet import failed: {e}')
+            
+        try:
+            import spoon_integration
+            print('✓ spoon_integration imported')
+        except ImportError as e:
+            print(f'✗ spoon_integration import failed: {e}')
+        "
+        
+    - name: Now checkout with submodules
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+        
+    - name: List files after submodule checkout
+      run: |
+        echo "=== Root directory after submodule checkout ==="
+        ls -la
+        echo "=== Check spoonos after submodule checkout ==="
+        ls -la spoonos/ || echo "spoonos still not found"
+        
+    - name: Test submodule status
+      run: |
+        git submodule status || echo "No submodules configured"
