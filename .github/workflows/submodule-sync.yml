@@ -39,15 +39,4 @@ jobs:
         echo "✅ Submodule structure validated"
 
     - name: Test integration with current submodule
-      run: |
-        export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
-        python -c "
-        import sys
-        sys.path.insert(0, 'src')
-        from spoon_integration import SPOON_AVAILABLE
-        print(f'SpoonOS integration status: {SPOON_AVAILABLE}')
-        
-        import os
-        print(f'SpoonOS path exists: {os.path.exists(\"spoonos\")}')
-        print('✅ Integration test with current submodule passed')
-        "
+      run: python .github/scripts/submodule_test.py

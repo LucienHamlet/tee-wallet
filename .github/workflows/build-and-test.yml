@@ -38,27 +38,11 @@ jobs:
 
     - name: Test imports and basic functionality
       run: |
-        export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
         python -c "import sys; sys.path.insert(0, 'src'); import tee_wallet; print('✓ tee_wallet imported successfully')"
         python -c "import sys; sys.path.insert(0, 'src'); import spoon_integration; print('✓ spoon_integration imported successfully')"
 
     - name: Run basic functionality test
-      run: |
-        export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
-        python -c "
-        import sys, asyncio
-        sys.path.insert(0, 'src')
-        from tee_wallet import TEEWallet, TransactionRequest
-        
-        async def test():
-            wallet = TEEWallet('test')
-            tx = TransactionRequest('0x742d35Cc6634C0532925a3b844Bc9e7595f1234', 100.0)
-            result = await wallet.secure_sign(tx)
-            assert result['success']
-            print('✓ Basic functionality test passed')
-        
-        asyncio.run(test())
-        "
+      run: python .github/scripts/basic_test.py
 
     - name: Validate project structure
       run: |
