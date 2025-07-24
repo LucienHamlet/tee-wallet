@@ -1,0 +1,41 @@
+# TEE Secure Wallet Requirements
+# Core dependencies for production deployment
+
+# Cryptography and security
+cryptography>=41.0.0
+pycryptodome>=3.19.0
+
+# SpoonOS integration
+# Note: In production, these would be installed from the actual SpoonOS package
+# For development, ensure spoon-core is in Python path
+
+# Async support
+asyncio-mqtt>=0.13.0
+aiofiles>=23.2.1
+
+# Data handling
+pydantic>=2.5.0
+dataclasses-json>=0.6.0
+
+# Logging and monitoring
+structlog>=23.2.0
+prometheus-client>=0.19.0
+
+# Testing dependencies (development)
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+
+# Optional: Hardware security module support
+# Uncomment if using actual HSM hardware
+# pyhsm>=1.2.0
+# pkcs11>=0.7.0
+
+# Optional: Intel SGX support (Linux only)
+# Uncomment if deploying on SGX-enabled hardware
+# sgx-sdk>=2.0.0
+
+# Development tools
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.7.0
