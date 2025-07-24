@@ -1,0 +1,73 @@
+name: Working CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+        
+    - name: Setup Python 3.11
+      uses: actions/setup-python@v3
+      with:
+        python-version: 3.11
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install cryptography
+        
+    - name: Show environment
+      run: |
+        pwd
+        ls -la
+        python --version
+        
+    - name: Test our code
+      run: |
+        cd src
+        python -c "
+import sys
+sys.path.insert(0, '.')
+
+print('Testing imports...')
+import tee_wallet
+print('✓ tee_wallet imported')
+
+import spoon_integration  
+print('✓ spoon_integration imported')
+
+print('Testing basic functionality...')
+import asyncio
+
+async def test():
+    wallet = tee_wallet.TEEWallet('test')
+    tx = tee_wallet.TransactionRequest('0x742d35Cc6634C0532925a3b844Bc9e7595f1234', 100.0)
+    result = await wallet.secure_sign(tx)
+    if result['success']:
+        print('✓ Basic test passed')
+        return True
+    else:
+        print('✗ Basic test failed')
+        return False
+
+success = asyncio.run(test())
+if not success:
+    sys.exit(1)
+        "
+        
+    - name: Validate structure
+      run: |
+        test -f src/tee_wallet.py && echo "✓ tee_wallet.py found"
+        test -f src/spoon_integration.py && echo "✓ spoon_integration.py found"
+        test -d spoonos && echo "✓ spoonos submodule found" || echo "⚠ spoonos submodule missing (expected)"
+        echo "✓ Project structure validated"
