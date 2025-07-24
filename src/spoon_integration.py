@@ -10,13 +10,13 @@ import sys
 from typing import Dict, Any, Optional, List
 from dataclasses import asdict
 
-# Add spoon-core to path for imports using @/spoon-core reference
-spoon_core_path = os.path.join(os.path.dirname(__file__), '../../spoon-core')
+# Add spoonos submodule to path for imports
+spoon_core_path = os.path.join(os.path.dirname(__file__), '../spoonos')
 if os.path.exists(spoon_core_path):
     sys.path.append(spoon_core_path)
 else:
-    # Try alternative path for @/spoon-core reference
-    alt_spoon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../spoon-core'))
+    # Try alternative path
+    alt_spoon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../spoonos'))
     if os.path.exists(alt_spoon_path):
         sys.path.append(alt_spoon_path)
 
@@ -45,7 +45,10 @@ except ImportError as e:
         async def execute(self, **kwargs):
             return "Tool executed"
 
-from .tee_wallet import TEEWallet, SigningPolicy, TransactionRequest
+try:
+    from .tee_wallet import TEEWallet, SigningPolicy, TransactionRequest
+except ImportError:
+    from tee_wallet import TEEWallet, SigningPolicy, TransactionRequest
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +228,7 @@ class SecureAgent(BaseAgent):
             try:
                 self.llm_provider = OpenRouterProvider(
                     api_key=os.getenv("OPENROUTER_API_KEY"),
-                    model="anthropic/claude-3.5-sonnet"
+                    model="anthropic/sonnet-3.5"
                 )
             except Exception as e:
                 logger.warning(f"Could not initialize OpenRouter provider: {e}")
@@ -454,7 +457,7 @@ class SpoonOSIntegration:
             try:
                 self.llm_provider = OpenRouterProvider(
                     api_key=self.api_key,
-                    model="anthropic/claude-3.5-sonnet"
+                    model="anthropic/sonnet-3.5"
                 )
             except Exception as e:
                 logger.warning(f"Could not initialize SpoonOS LLM provider: {e}")
