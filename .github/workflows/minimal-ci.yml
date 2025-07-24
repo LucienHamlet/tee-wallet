@@ -1,0 +1,50 @@
+name: Minimal CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+        
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install cryptography
+        
+    - name: Test core functionality
+      run: |
+        export PYTHONPATH=src
+        python -c "
+        import asyncio
+        import sys
+        import os
+        sys.path.insert(0, 'src')
+        
+        # Import test
+        from tee_wallet import TEEWallet, TransactionRequest
+        print('✓ Imports successful')
+        
+        # Basic functionality test
+        async def test():
+            wallet = TEEWallet('ci_test')
+            tx = TransactionRequest('0x742d35Cc6634C0532925a3b844Bc9e7595f1234', 100.0)
+            result = await wallet.secure_sign(tx)
+            assert result['success'], 'Transaction should succeed'
+            print('✓ Basic functionality test passed')
+        
+        asyncio.run(test())
+        print('✓ All tests passed')
+        "
