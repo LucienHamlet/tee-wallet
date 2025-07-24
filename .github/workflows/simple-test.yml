@@ -1,0 +1,71 @@
+name: Simple Test
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  basic-validation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install minimal dependencies
+      run: |
+        python -m pip install --upgrade pip
+
+    - name: Validate repository structure
+      run: |
+        echo "Checking required files..."
+        test -f src/tee_wallet.py && echo "✓ tee_wallet.py found" || echo "✗ tee_wallet.py missing"
+        test -f src/spoon_integration.py && echo "✓ spoon_integration.py found" || echo "✗ spoon_integration.py missing"
+        test -d spoonos && echo "✓ spoonos submodule found" || echo "✗ spoonos submodule missing"
+
+    - name: Test Python imports
+      run: |
+        PYTHONPATH=src python -c "
+        try:
+            import tee_wallet
+            print('✓ tee_wallet imports successfully')
+        except Exception as e:
+            print(f'✗ tee_wallet import failed: {e}')
+            exit(1)
+        
+        try:
+            import spoon_integration
+            print('✓ spoon_integration imports successfully')
+        except Exception as e:
+            print(f'✗ spoon_integration import failed: {e}')
+            exit(1)
+        
+        print('✓ All core modules import successfully')
+        "
+
+    - name: Basic functionality test
+      run: |
+        PYTHONPATH=src python -c "
+        import asyncio
+        from tee_wallet import TEEWallet, TransactionRequest
+        
+        async def test():
+            wallet = TEEWallet('simple_test')
+            tx = TransactionRequest('0x742d35Cc6634C0532925a3b844Bc9e7595f1234', 100.0)
+            result = await wallet.secure_sign(tx)
+            if result['success']:
+                print('✓ Basic wallet functionality works')
+            else:
+                print(f'✗ Wallet test failed: {result.get(\"error\")}')
+                exit(1)
+        
+        asyncio.run(test())
+        print('✓ All tests passed!')
+        "

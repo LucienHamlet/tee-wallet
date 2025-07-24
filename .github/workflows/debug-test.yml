@@ -1,0 +1,71 @@
+name: Debug Test
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  minimal-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Check file structure
+      run: |
+        echo "=== Repository Structure ==="
+        ls -la
+        echo ""
+        echo "=== Source Directory ==="
+        ls -la src/ || echo "src/ directory not found"
+        echo ""
+        echo "=== Scripts Directory ==="
+        ls -la .github/scripts/ || echo ".github/scripts/ directory not found"
+        echo ""
+        echo "=== Submodule Status ==="
+        git submodule status || echo "No submodules"
+        echo ""
+        echo "=== Python Path Test ==="
+        python -c "import sys; print('Python path:', sys.path)"
+
+    - name: Test basic import
+      run: |
+        python -c "
+        import sys
+        import os
+        print('Current working directory:', os.getcwd())
+        sys.path.insert(0, 'src')
+        print('Updated Python path:', sys.path[:3])
+        try:
+            import tee_wallet
+            print('✓ tee_wallet imported successfully')
+        except Exception as e:
+            print(f'✗ tee_wallet import failed: {e}')
+            import traceback
+            traceback.print_exc()
+        "
+
+    - name: Test script execution
+      run: |
+        echo "Testing basic script..."
+        python -c "
+        import sys
+        import os
+        print('Script test - CWD:', os.getcwd())
+        print('Script test - Files in .github/scripts:', os.listdir('.github/scripts/') if os.path.exists('.github/scripts/') else 'Directory not found')
+        "
+        
+        if [ -f ".github/scripts/basic_test.py" ]; then
+          echo "Running basic_test.py..."
+          python .github/scripts/basic_test.py
+        else
+          echo "basic_test.py not found"
+        fi
