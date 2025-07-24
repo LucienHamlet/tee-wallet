@@ -9,8 +9,12 @@ import time
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, asdict
 
-from .tee_wallet import TEEWallet, SigningPolicy, TransactionRequest, TEESecureEnclave
-from .hsm_support import HSMWalletManager, HSMConfig, create_hsm_config
+try:
+    from .tee_wallet import TEEWallet, SigningPolicy, TransactionRequest, TEESecureEnclave
+    from .hsm_support import HSMWalletManager, HSMConfig, create_hsm_config
+except ImportError:
+    from tee_wallet import TEEWallet, SigningPolicy, TransactionRequest, TEESecureEnclave
+    from hsm_support import HSMWalletManager, HSMConfig, create_hsm_config
 
 logger = logging.getLogger(__name__)
 

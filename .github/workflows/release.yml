@@ -1,0 +1,196 @@
+name: Release and Deploy
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine pytest pytest-asyncio
+
+    - name: Run full test suite
+      run: |
+        export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
+        python -c "
+import sys
+import asyncio
+sys.path.insert(0, 'src')
+
+async def full_test_suite():
+    print('=== Release Test Suite ===')
+    
+    from tee_wallet import TEEWallet, SigningPolicy, TransactionRequest
+    from spoon_integration import create_secure_agent, SpoonOSIntegration
+    
+    # Test 1: Core functionality
+    print('1. Testing core wallet functionality...')
+    wallet = TEEWallet('release_test')
+    tx = TransactionRequest('0x742d35Cc6634C0532925a3b844Bc9e7595f1234', 100.0)
+    result = await wallet.secure_sign(tx)
+    assert result['success'], 'Core functionality test failed'
+    print('   ✅ Core functionality passed')
+    
+    # Test 2: Policy enforcement
+    print('2. Testing policy enforcement...')
+    policy = SigningPolicy(max_transaction_value=50.0)
+    policy_wallet = TEEWallet('policy_test', policy)
+    
+    large_tx = TransactionRequest('0x742d35Cc6634C0532925a3b844Bc9e7595f1234', 100.0)
+    result = await policy_wallet.secure_sign(large_tx)
+    assert not result['success'], 'Policy enforcement test failed'
+    print('   ✅ Policy enforcement passed')
+    
+    # Test 3: SpoonOS integration
+    print('3. Testing SpoonOS integration...')
+    integration = SpoonOSIntegration()
+    parse_result = integration._parse_with_regex('Send 1 ETH to 0x742d35Cc6634C0532925a3b844Bc9e7595f1234')
+    assert parse_result['success'], 'Integration test failed'
+    print('   ✅ SpoonOS integration passed')
+    
+    # Test 4: Agent creation
+    print('4. Testing agent creation...')
+    agent = create_secure_agent('release_agent')
+    assert agent.wallet.get_address().startswith('0x'), 'Agent creation test failed'
+    print('   ✅ Agent creation passed')
+    
+    print('\\n=== All Release Tests Passed! ===')
+
+asyncio.run(full_test_suite())
+"
+
+    - name: Build package
+      run: |
+        python -m build
+
+    - name: Check package
+      run: |
+        python -m twine check dist/*
+
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        echo "## Features" > release-notes.md
+        echo "- ✅ TEE-secured wallet with policy enforcement" >> release-notes.md
+        echo "- ✅ SpoonOS integration for AI agent interactions" >> release-notes.md
+        echo "- ✅ HSM support for enterprise deployments" >> release-notes.md
+        echo "- ✅ Comprehensive audit logging" >> release-notes.md
+        echo "- ✅ Multi-chain transaction support" >> release-notes.md
+        echo "" >> release-notes.md
+        
+        echo "## Technical Details" >> release-notes.md
+        echo "- Python 3.9+ support" >> release-notes.md
+        echo "- Async/await transaction processing" >> release-notes.md
+        echo "- Policy-based transaction validation" >> release-notes.md
+        echo "- SpoonOS submodule integration" >> release-notes.md
+        echo "" >> release-notes.md
+        
+        echo "## Security" >> release-notes.md
+        echo "- TEE-based key protection" >> release-notes.md
+        echo "- Policy enforcement at signing level" >> release-notes.md
+        echo "- Comprehensive audit trail" >> release-notes.md
+        echo "- Emergency override controls" >> release-notes.md
+        
+        cat release-notes.md
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-artifacts
+        path: |
+          dist/
+          release-notes.md
+
+  create-release:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: release-artifacts
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        body_path: release-notes.md
+        files: |
+          dist/*
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  security-validation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install security tools
+      run: |
+        pip install bandit safety semgrep
+
+    - name: Run comprehensive security scan
+      run: |
+        echo "=== Security Validation for Release ==="
+        
+        # Bandit scan
+        echo "Running Bandit security scan..."
+        bandit -r src/ -f json -o bandit-release.json
+        bandit -r src/ -ll
+        
+        # Safety check
+        echo "Checking for known vulnerabilities..."
+        pip freeze > release-requirements.txt
+        safety check -r release-requirements.txt
+        
+        # Semgrep scan
+        echo "Running Semgrep analysis..."
+        semgrep --config=auto src/ --json --output=semgrep-release.json || true
+        
+        echo "✅ Security validation completed"
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-validation
+        path: |
+          bandit-release.json
+          semgrep-release.json
+          release-requirements.txt
