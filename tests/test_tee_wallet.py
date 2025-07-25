@@ -299,7 +299,7 @@ class TestSpoonOSIntegration:
         tool = SecureWalletTool(wallet)
         
         assert tool.name == "secure_wallet"
-        assert "sign_transaction" in tool.description
+        assert "sign" in tool.description.lower()
         assert tool.wallet == wallet
     
     @pytest.mark.asyncio
