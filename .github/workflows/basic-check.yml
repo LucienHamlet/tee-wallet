@@ -24,6 +24,10 @@ jobs:
         python --version
         python -c "print('Python is working')"
         
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        
     - name: Check files
       run: |
         ls -la
@@ -32,4 +36,4 @@ jobs:
     - name: Simple import test
       run: |
         cd src
-        python -c "import tee_wallet; print('Import successful')"
+        python -c "import sys; sys.path.insert(0, '.'); import tee_wallet; print('Import successful')"

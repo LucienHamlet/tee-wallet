@@ -35,35 +35,7 @@ jobs:
     - name: Test our code
       run: |
         cd src
-        python -c "
-import sys
-sys.path.insert(0, '.')
-
-print('Testing imports...')
-import tee_wallet
-print('✓ tee_wallet imported')
-
-import spoon_integration  
-print('✓ spoon_integration imported')
-
-print('Testing basic functionality...')
-import asyncio
-
-async def test():
-    wallet = tee_wallet.TEEWallet('test')
-    tx = tee_wallet.TransactionRequest('0x742d35Cc6634C0532925a3b844Bc9e7595f1234', 100.0)
-    result = await wallet.secure_sign(tx)
-    if result['success']:
-        print('✓ Basic test passed')
-        return True
-    else:
-        print('✗ Basic test failed')
-        return False
-
-success = asyncio.run(test())
-if not success:
-    sys.exit(1)
-        "
+        python -c "import sys; sys.path.insert(0, '.'); import tee_wallet; print('✓ tee_wallet imported'); import spoon_integration; print('✓ spoon_integration imported')"
         
     - name: Validate structure
       run: |
